@@ -24,10 +24,12 @@ export class CopyError extends Error {
 
 /**
  * Looks a key up and fills `{name}` placeholders. A missing key throws in tests and dev,
- * so a screen can't ship with a hard-coded or forgotten string.
+ * so a screen can't ship with a hard-coded or forgotten string. `defaults` fill what a call doesn't pass, such as the
+ * biometric's name for this phone (`biometricWords`).
  */
-export function createTranslator(dict: Dictionary) {
-  return function t(key: string, vars: Record<string, string | number> = {}): string {
+export function createTranslator(dict: Dictionary, defaults: Record<string, string> = {}) {
+  return function t(key: string, given: Record<string, string | number> = {}): string {
+    const vars: Record<string, string | number> = { ...defaults, ...given };
     const text = dict[key];
     if (text === undefined) throw new CopyError(`Missing copy key ${key}.`);
     return text.replace(/\{(\w+)\}/g, (_, name: string) => {
@@ -35,6 +37,30 @@ export function createTranslator(dict: Dictionary) {
       return String(vars[name]);
     });
   };
+}
+
+/** Issue 128: the iOS permission prompts, written into the app's Info.plist by apps/mobile/plugins/with-ios-purpose-strings. */
+export const IOS_PURPOSE_KEYS = ["common.ios.faceIdUsage", "common.ios.calendarsUsage", "common.ios.remindersUsage"] as const;
+
+/**
+ * Issue 128: what the phone calls its biometric. Android says fingerprint; an iPhone says Face ID or Touch ID, or both
+ * when it can't tell which it has.
+ */
+export const BIOMETRIC_KINDS = ["fingerprint", "faceId", "touchId", "faceOrTouchId"] as const;
+export type BiometricKind = (typeof BIOMETRIC_KINDS)[number];
+
+/**
+ * The `{biometric}`, `{biometricStart}` (at the start of a sentence) and `{aBiometric}` (with "a" where the word takes
+ * one) placeholders for one kind, from `common.biometric.*`. The app passes them to `createTranslator` as defaults.
+ */
+export function biometricWords(dict: Dictionary, kind: BiometricKind): Record<"biometric" | "biometricStart" | "aBiometric", string> {
+  const word = (form: string) => {
+    const key = `common.biometric.${kind}${form}`;
+    const text = dict[key];
+    if (text === undefined) throw new CopyError(`Missing copy key ${key}.`);
+    return text;
+  };
+  return { biometric: word(""), biometricStart: word(".start"), aBiometric: word(".a") };
 }
 
 /** The placeholders a string uses, so both locales can be checked to agree. */

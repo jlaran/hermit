@@ -1,11 +1,22 @@
 import { useSyncExternalStore } from "react";
-import { createTranslator, resolveLocale, type Dictionary, type Locale } from "@hermit/copy";
+import { biometricWords, createTranslator, resolveLocale, type BiometricKind, type Dictionary, type Locale } from "@hermit/copy";
 import en from "@hermit/copy/locales/en.json";
 import es from "@hermit/copy/locales/es-419.json";
 
 // CT-10: every string on screen comes from here, keyed by screen ID.
 const dictionaries: Record<Locale, Dictionary> = { en, "es-419": es };
-const translators: Record<Locale, ReturnType<typeof createTranslator>> = { en: createTranslator(en), "es-419": createTranslator(es) };
+// Issue 128: {biometric} and its forms name this phone's biometric (fingerprint on Android, Face ID or Touch ID on an
+// iPhone). Fingerprint until setBiometricKind runs at startup.
+const translatorsFor = (kind: BiometricKind): Record<Locale, ReturnType<typeof createTranslator>> => ({
+  en: createTranslator(en, biometricWords(en, kind)),
+  "es-419": createTranslator(es, biometricWords(es, kind)),
+});
+let translators = translatorsFor("fingerprint");
+
+/** Names the phone's biometric in every string from now on (adapters/fingerprint.ts reads it from the OS). */
+export function setBiometricKind(kind: BiometricKind): void {
+  translators = translatorsFor(kind);
+}
 
 /** The phone's language, resolved to the two Hermit speaks (es-419 for any Spanish, English otherwise). */
 export function deviceLocale(): Locale {

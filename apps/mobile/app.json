@@ -126,6 +126,7 @@
           }
         }
       ],
+      "./plugins/with-ios-purpose-strings",
       "expo-secure-store",
       [
         "expo-local-authentication",

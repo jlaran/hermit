@@ -58,7 +58,7 @@ test("HM-BOT-04: the Auto sheet names what really runs, in both languages (F-M21
     "HM-BOT-04.autoSheet.mail": [/confirmar, cancelar suscripción o iniciar sesión.*tu correo y tus mensajes/, /confirm, unsubscribe or sign-in links.*your mail and messages/],
     "HM-BOT-04.autoSheet.composed": [/enlace que Hermit arma.*sigue pidiendo/, /link Hermit builds itself still asks/],
     "HM-BOT-04.autoSheet.asks": [/responder.*enviar un correo.*datos de otra persona/, /replying.*sending an email.*someone else's data/],
-    "HM-BOT-04.autoSheet.money": [/pagos y los inicios de sesión.*huella/, /[Pp]ayments and logins.*fingerprint/],
+    "HM-BOT-04.autoSheet.money": [/pagos y los inicios de sesión.*\{biometric\}/, /[Pp]ayments and logins.*\{biometric\}/],
   };
   for (const [key, [e, n]] of Object.entries(points)) {
     assert.match(es[key] ?? "", e, `es ${key}`);
@@ -76,10 +76,10 @@ test("HM-BOT-04: the Auto sheet names what really runs, in both languages (F-M21
 test("HM-BOT-04: the Don't ask sheet names the connected tools, the money and the proof, in both languages", () => {
   assert.match(es["HM-BOT-04.dontAskSheet.tools"]!, /herramientas de servicios conectados.*sin preguntar.*no siempre puede.*mueve dinero/);
   assert.match(en["HM-BOT-04.dontAskSheet.tools"]!, /Tools from connected services run without asking.*can't always tell whether.*moves money/);
-  assert.match(es["HM-BOT-04.dontAskSheet.money"]!, /pagos y los inicios de sesión.*huella.*todos los modos/);
-  assert.match(en["HM-BOT-04.dontAskSheet.money"]!, /Payments and logins.*fingerprint.*every mode/);
-  assert.match(es["HM-BOT-04.dontAskSheet.proof"]!, /huella.*escribir/);
-  assert.match(en["HM-BOT-04.dontAskSheet.proof"]!, /fingerprint.*type/);
+  assert.match(es["HM-BOT-04.dontAskSheet.money"]!, /pagos y los inicios de sesión.*\{biometric\}.*todos los modos/);
+  assert.match(en["HM-BOT-04.dontAskSheet.money"]!, /Payments and logins.*\{biometric\}.*every mode/);
+  assert.match(es["HM-BOT-04.dontAskSheet.proof"]!, /\{biometric\}.*escribir/);
+  assert.match(en["HM-BOT-04.dontAskSheet.proof"]!, /\{biometric\}.*type/);
   for (const k of ["risk", "tools", "money", "proof", "typeWord"]) assert.ok(DONT_ASK_SHEET_KEYS.includes(`HM-BOT-04.dontAskSheet.${k}` as never), k);
 });
 

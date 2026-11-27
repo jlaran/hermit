@@ -1,10 +1,14 @@
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import { applyBiometricName } from "../adapters/fingerprint";
 import { AppLockProvider } from "../app-lock";
 import { useDisplaySync } from "../display-settings";
 import { HermitProvider } from "../hermit-context";
 import { t } from "../i18n";
 import { usePalette } from "../use-palette";
+
+// Issue 128: Face ID or Touch ID in the copy on an iPhone, read once before the first screens need it.
+void applyBiometricName();
 
 // HM-ONB-02, HM-SET-05, HM-SET-07: the stored language and scheme, applied once the runtime is ready.
 function DisplaySync() {

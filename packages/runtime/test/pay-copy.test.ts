@@ -64,6 +64,8 @@ const used = new Set<string>([
   ...[...source.matchAll(/"(HM-APPR-02\.[a-zA-Z]+)"/g)].map((m) => m[1]!),
 ]);
 
+const TRANSLATOR_FILLS = ["biometric", "biometricStart", "aBiometric"];
+
 describe("SL-40: the payment copy", () => {
   test("the list here is exactly the keys the service says", () => {
     expect([...used].sort()).toEqual(Object.keys(VARS).sort());
@@ -73,7 +75,8 @@ describe("SL-40: the payment copy", () => {
     for (const dict of Object.values(locales)) {
       const text = dict[key];
       expect(text, key).toBeTypeOf("string");
-      for (const [, name] of text!.matchAll(/\{(\w+)\}/g)) expect(vars, `${key} uses {${name}}`).toContain(name);
+      // The app's translator fills the biometric's name for this phone (issue 128); the service passes the rest.
+      for (const [, name] of text!.matchAll(/\{(\w+)\}/g)) expect([...vars, ...TRANSLATOR_FILLS], `${key} uses {${name}}`).toContain(name);
     }
   });
 });

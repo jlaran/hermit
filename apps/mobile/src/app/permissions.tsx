@@ -3,13 +3,15 @@
 import { openHermitChat } from "../open-chat";
 import { router } from "expo-router";
 import { useState } from "react";
-import { View } from "react-native";
+import { Platform, View } from "react-native";
+import { showsRestrictedHelp } from "@hermit/runtime";
 import { NotWiredError, requestCalendarAccess, requestContactsPermission, requestNotificationAccess, requestReminderPermission, setUpApprovals } from "../adapters";
 import type { IconName } from "../components/Icon";
 import { Btn, Group, Row, Status, T } from "../components/kit";
 import { Onb } from "../components/Onboarding";
 import { useHermit } from "../hermit-context";
 import { t } from "../i18n";
+import { hardwarePlatform } from "../platform-facts";
 import { s } from "../theme";
 
 type Grant = "unknown" | "granted" | "denied" | "not_wired";
@@ -69,7 +71,7 @@ export default function Permissions() {
       }
     >
       <Group>
-        {row("bell", t("HM-ONB-04.notificationsTitle"), t("HM-ONB-04.notificationsBody"), notif, () => ask(requestNotificationAccess, setNotif), t("HM-ONB-04.restrictedHelp"))}
+        {row("bell", t("HM-ONB-04.notificationsTitle"), t("HM-ONB-04.notificationsBody"), notif, () => ask(requestNotificationAccess, setNotif), showsRestrictedHelp(hardwarePlatform(Platform.OS)) ? t("HM-ONB-04.restrictedHelp") : undefined)}
         {row("calendar", t("HM-ONB-04.calendarTitle"), t("HM-ONB-04.calendarBody"), cal, () => ask(requestCalendarAccess, setCal))}
         {row("contact", t("HM-ONB-04.contactsTitle"), t("HM-ONB-04.contactsBody"), contacts, () => ask(requestContactsPermission, setContacts))}
         {row("bell-ring", t("HM-ONB-04.remindersTitle"), t("HM-ONB-04.remindersBody"), reminders, () => ask(requestReminderPermission, setReminders))}

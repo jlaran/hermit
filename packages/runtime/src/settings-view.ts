@@ -33,7 +33,12 @@ export interface PermissionRow {
   help?: "restricted" | "exact_alarm" | "autofill";
 }
 
-export function permissionRow(id: PermissionId, r: OsReading): PermissionRow {
+/** Issue 128: restricted settings and exact alarms are Android's, so an iPhone never shows their steps. */
+export function showsRestrictedHelp(platform: "android" | "ios"): boolean {
+  return platform === "android";
+}
+
+export function permissionRow(id: PermissionId, r: OsReading, platform: "android" | "ios" = "android"): PermissionRow {
   switch (r.kind) {
     case "not_used":
       return { id, state: "not_used", action: "none" };
@@ -43,7 +48,7 @@ export function permissionRow(id: PermissionId, r: OsReading): PermissionRow {
       // SL-35: whether Hermit is the selected autofill service. Chrome needs its own switch either way, so the help stays.
       if (id === "autofill") return r.enabled ? { id, state: "granted", action: "manage", help: "autofill" } : { id, state: "denied", action: "open_settings", help: "autofill" };
       if (r.enabled) return { id, state: "granted", action: "manage" };
-      return { id, state: "denied", action: "open_settings", ...(id === "notifications" ? { help: "restricted" as const } : {}) };
+      return { id, state: "denied", action: "open_settings", ...(id === "notifications" && showsRestrictedHelp(platform) ? { help: "restricted" as const } : {}) };
     case "prompt":
       if (r.status === "granted") return { id, state: "granted", action: "manage" };
       if (r.status === "undetermined") return { id, state: "not_asked", action: "allow" };
@@ -52,10 +57,10 @@ export function permissionRow(id: PermissionId, r: OsReading): PermissionRow {
   }
 }
 
-/** Reminders need notifications and exact alarms (Android 14+ denies exact alarms by default). */
-export function remindersRow(notifications: OsReading, exactAlarm: OsReading): PermissionRow {
-  const n = permissionRow("reminders", notifications);
-  if (n.state !== "granted") return n;
+/** Reminders need notifications and exact alarms (Android 14+ denies exact alarms by default; an iPhone has none). */
+export function remindersRow(notifications: OsReading, exactAlarm: OsReading, platform: "android" | "ios" = "android"): PermissionRow {
+  const n = permissionRow("reminders", notifications, platform);
+  if (n.state !== "granted" || platform === "ios") return n;
   const exact = permissionRow("reminders", exactAlarm);
   if (exact.state === "granted" || exact.state === "unknown") return exact;
   return { id: "reminders", state: "limited", action: "open_settings", help: "exact_alarm" };

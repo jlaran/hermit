@@ -14,9 +14,11 @@ import { capabilityAnswer } from "../src/capabilities.ts";
 
 const load = (name: string): Record<string, string> => JSON.parse(readFileSync(new URL(`../../copy/locales/${name}.json`, import.meta.url), "utf8"));
 const DICTS = { "es-419": load("es-419"), en: load("en") };
-const copy: NonNullable<HermitPorts["copy"]> = (language, key, vars = {}) => {
+// Like the app's translator, which fills the biometric's name for this phone (issue 128): an Android phone here.
+const copy: NonNullable<HermitPorts["copy"]> = (language, key, given = {}) => {
   const text = DICTS[language][key];
   if (text === undefined) throw new Error(`Missing copy key ${key}.`);
+  const vars: Record<string, string> = { biometric: DICTS[language]["common.biometric.fingerprint"]!, ...given };
   return text.replace(/\{(\w+)\}/g, (_, name: string) => vars[name] ?? `{${name}}`);
 };
 

@@ -1,13 +1,14 @@
 import * as Calendar from "expo-calendar";
 import * as LocalAuthentication from "expo-local-authentication";
 import * as Notifications from "expo-notifications";
-import { Linking } from "react-native";
+import { Linking, Platform } from "react-native";
 import { permissionRow, remindersRow, type OsReading, type PermissionId, type PermissionRow } from "@hermit/runtime";
 import { requestCalendarPermission } from "./calendar";
 import { contactsPermission, requestContactsPermission } from "./contacts";
 import { notificationAccessEnabled, openNotificationAccessSettings } from "./messages";
 import { requestReminderAccess } from "./notifier";
 import { autofillSelected, openAutofillSettings } from "./autofill";
+import { hardwarePlatform } from "../platform-facts";
 
 /** HM-SET-01: reads each permission without prompting; the screen re-reads when the user comes back. */
 const prompt = async (read: () => Promise<{ status: string; canAskAgain: boolean }>): Promise<OsReading> => {
@@ -36,11 +37,12 @@ export async function readPermissions(): Promise<PermissionRow[]> {
     special(async () => (await Notifications.getExactAlarmPermissionsAsync()).granted),
     special(() => LocalAuthentication.isEnrolledAsync()),
   ]);
+  const os = hardwarePlatform(Platform.OS);
   return [
-    permissionRow("notifications", notifications),
+    permissionRow("notifications", notifications, os),
     permissionRow("calendar", calendar),
     permissionRow("contacts", contacts),
-    remindersRow(notify, exact),
+    remindersRow(notify, exact, os),
     permissionRow("fingerprint", fingerprint),
     // No voice in this build yet: listed so the user sees it, with nothing to grant.
     permissionRow("microphone", { kind: "not_used" }),

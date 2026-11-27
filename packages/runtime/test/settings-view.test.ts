@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
 import { PROFILES } from "@hermit/model";
-import { permissionRow, privacyHosts, remindersRow } from "../src/settings-view.ts";
+import { permissionRow, privacyHosts, remindersRow, showsRestrictedHelp } from "../src/settings-view.ts";
 
 describe("permission rows (HM-SET-01, US-SET-01, US-ONB-08)", () => {
   test("a runtime permission maps to its state and the one action that changes it", () => {
@@ -20,6 +20,15 @@ describe("permission rows (HM-SET-01, US-SET-01, US-ONB-08)", () => {
   test("notification access has no prompt: off opens its settings page, with the restricted-settings help", () => {
     expect(permissionRow("notifications", { kind: "special", enabled: false })).toEqual({ id: "notifications", state: "denied", action: "open_settings", help: "restricted" });
     expect(permissionRow("notifications", { kind: "special", enabled: true })).toEqual({ id: "notifications", state: "granted", action: "manage" });
+  });
+
+  test("an iPhone has no restricted settings or exact alarms, so it never shows Android's steps for them (issue 128)", () => {
+    expect(showsRestrictedHelp("android")).toBe(true);
+    expect(showsRestrictedHelp("ios")).toBe(false);
+    expect(permissionRow("notifications", { kind: "special", enabled: false }, "ios")).toEqual({ id: "notifications", state: "denied", action: "open_settings" });
+    const on = { kind: "prompt", status: "granted", canAskAgain: true } as const;
+    expect(remindersRow(on, { kind: "special", enabled: false }, "ios")).toEqual({ id: "reminders", state: "granted", action: "manage" });
+    expect(remindersRow(on, { kind: "special", enabled: false }, "android")).toMatchObject({ state: "limited", help: "exact_alarm" });
   });
 
   test("a fingerprint that is not set up on the phone points to the phone's security settings", () => {

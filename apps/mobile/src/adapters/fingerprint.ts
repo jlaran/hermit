@@ -1,4 +1,7 @@
 import * as LocalAuthentication from "expo-local-authentication";
+import { Platform } from "react-native";
+import { biometricKind } from "../biometric-name";
+import { setBiometricKind } from "../i18n";
 
 export type FingerprintCheck = "confirmed" | "not_confirmed" | "unavailable";
 
@@ -16,4 +19,10 @@ export async function confirmWithFingerprint(prompt: string, cancelLabel: string
     disableDeviceFallback: true,
   });
   return auth.success ? "confirmed" : "not_confirmed";
+}
+
+/** Issue 128: the copy names this phone's biometric: Face ID or Touch ID on an iPhone, fingerprint on Android. */
+export async function applyBiometricName(): Promise<void> {
+  const supported = Platform.OS === "ios" ? await LocalAuthentication.supportedAuthenticationTypesAsync().catch(() => undefined) : undefined;
+  setBiometricKind(biometricKind(Platform.OS, supported));
 }
