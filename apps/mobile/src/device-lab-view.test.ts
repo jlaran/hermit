@@ -4,7 +4,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { createTranslator, type Dictionary } from "@hermit/copy";
-import { clockText, issueLink, MAX_FORM_URL, REPORT_FORM_URL, reportGroups, reportText } from "./device-lab-view.ts";
+import { clockText, fileReport, issueLink, MAX_FORM_URL, REPORT_FORM_URL, reportGroups, reportText } from "./device-lab-view.ts";
 
 const locale = (name: string) => JSON.parse(readFileSync(new URL(`../../../packages/copy/locales/${name}.json`, import.meta.url), "utf8")) as Dictionary;
 const fixture = (name: string) => JSON.parse(readFileSync(new URL(`../../../scripts/devices/fixtures/${name}`, import.meta.url), "utf8"));
@@ -89,6 +89,75 @@ test("a report too long for a link opens the empty form instead", () => {
   assert.equal(link.prefilled, false);
   assert.equal(new URL(link.url).searchParams.get("report"), null);
   assert.equal(new URL(link.url).searchParams.get("template"), "device_report.yml");
+});
+
+/** A made-up phone for File it on GitHub: what it copied and opened, in order, and which of the two fail. */
+const phoneFor = (fail: { copy?: boolean; open?: boolean } = {}) => {
+  const calls: string[][] = [];
+  return {
+    calls,
+    io: {
+      copy: async (text: string) => {
+        calls.push(["copy", text]);
+        if (fail.copy) throw new Error("no clipboard");
+      },
+      open: async (url: string) => {
+        calls.push(["open", url]);
+        if (fail.open) throw new Error("no handler");
+      },
+    },
+  };
+};
+
+const tooLong = () => {
+  const long = JSON.parse(JSON.stringify(report));
+  long.device.model = "M".repeat(40);
+  long.speed.sweep = Array.from({ length: 200 }, (_, i) => ({ threads: i + 1, tokensPerSecond: 1, loadMs: 1 }));
+  return long;
+};
+
+test("File it on GitHub copies the exact report first, then opens the filled-in form, on every phone", async () => {
+  for (const r of [report, iphone]) {
+    const phone = phoneFor();
+    const notice = await fileReport(r, phone.io);
+    assert.deepEqual(phone.calls, [["copy", reportText(r)], ["open", issueLink(r).url]]);
+    assert.equal(issueLink(r).prefilled, true);
+    assert.equal(notice, "fileCopied");
+  }
+});
+
+test("a report too long for a link is copied the same way, and the empty form opens", async () => {
+  const long = tooLong();
+  const phone = phoneFor();
+  assert.equal(await fileReport(long, phone.io), "longCopied");
+  assert.deepEqual(phone.calls, [["copy", reportText(long)], ["open", issueLink(long).url]]);
+  assert.equal(new URL(phone.calls[1]![1]!).searchParams.get("report"), null);
+});
+
+test("when the copy fails, a filled-in form still opens, but an empty one doesn't", async () => {
+  const filled = phoneFor({ copy: true });
+  assert.equal(await fileReport(report, filled.io), undefined);
+  assert.deepEqual(filled.calls.map((c) => c[0]), ["copy", "open"]);
+  const empty = phoneFor({ copy: true });
+  assert.equal(await fileReport(tooLong(), empty.io), "copyFailed");
+  assert.deepEqual(empty.calls.map((c) => c[0]), ["copy"]);
+});
+
+test("when nothing can open the link, the screen says so", async () => {
+  assert.equal(await fileReport(report, phoneFor({ open: true }).io), "openFailed");
+  assert.equal(await fileReport(tooLong(), phoneFor({ open: true }).io), "openFailed");
+});
+
+test("what File it on GitHub says: the report is copied, paste it into Report if the form opens empty, or pick Device report", () => {
+  for (const name of ["en", "es-419"]) {
+    const d = locale(name);
+    for (const key of ["HM-SET-10.fileCopied", "HM-SET-10.longCopied"]) {
+      assert.ok(d[key], `${name}: ${key} is missing`);
+      assert.ok(d[key]!.includes("Report") && d[key]!.includes("Device report"), `${name}: ${key}`);
+      assert.ok(!/[\u2013\u2014]/.test(d[key]!), `${name}: ${key} has a dash`);
+    }
+    assert.ok(!/Android/.test(d["HM-SET-10.fileCopied"]!), `${name}: fileCopied says Android`);
+  }
 });
 
 test("the exact text is the report's JSON, and nothing else", () => {

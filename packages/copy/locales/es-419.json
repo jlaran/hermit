@@ -2228,13 +2228,14 @@
   "HM-SET-10.hideExact": "Ocultar el texto exacto",
   "HM-SET-10.exactNote": "Este es exactamente el texto que usan Copiar, Compartir y Enviarlo a GitHub.",
   "HM-SET-10.shareTitle": "Compártelo, si quieres",
-  "HM-SET-10.shareBody": "Los informes de muchos teléfonos ayudan a ajustar la velocidad y la precisión de Hermit para cada uno. Enviarlo a GitHub abre en tu navegador el formulario de informes del proyecto Hermit, con el informe ya puesto. No se publica nada hasta que presiones Submit ahí, y necesitas una cuenta de GitHub.",
+  "HM-SET-10.shareBody": "Los informes de muchos teléfonos ayudan a ajustar la velocidad y la precisión de Hermit para cada uno. Enviarlo a GitHub copia el informe y luego abre el formulario de informes del proyecto Hermit en la app de GitHub o en tu navegador, con el informe ya puesto. No se publica nada hasta que presiones Submit ahí, y necesitas una cuenta de GitHub.",
   "HM-SET-10.file": "Enviarlo a GitHub",
   "HM-SET-10.copy": "Copiar",
   "HM-SET-10.share": "Compartir",
   "HM-SET-10.copied": "Copiado.",
   "HM-SET-10.copyFailed": "No se pudo copiar. Inténtalo de nuevo.",
-  "HM-SET-10.longCopied": "El informe es demasiado largo para un enlace, así que se copió: pégalo en el campo Report del formulario.",
-  "HM-SET-10.openFailed": "No se pudo abrir el navegador. Copia el informe y envíalo en {address}.",
+  "HM-SET-10.fileCopied": "El informe también se copió. Si el formulario se abre vacío, pégalo en el campo Report. Si la app de GitHub muestra una lista de formularios, elige Device report.",
+  "HM-SET-10.longCopied": "El informe es demasiado largo para un enlace, así que se copió. Pégalo en el campo Report del formulario. Si la app de GitHub muestra una lista de formularios, elige Device report.",
+  "HM-SET-10.openFailed": "No se pudo abrir GitHub. Copia el informe y envíalo en {address}.",
   "HM-SET-10.shareSubject": "Informe de dispositivo de Hermit"
 }

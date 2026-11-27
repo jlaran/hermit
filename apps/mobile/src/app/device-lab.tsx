@@ -13,7 +13,7 @@ import { modelReady, releaseModel } from "../adapters";
 import { appVersion, batterySaverOn, copyReport, keepScreenOn, labPorts, labSetup, openReportForm, shareReport } from "../adapters/device-lab";
 import { inTurn } from "../adapters/model-update";
 import { Btn, Card, Failed, Field, Label, Meter, Note, Notice, Page, T } from "../components/kit";
-import { clockText, issueLink, REPORT_FORM_ADDRESS, reportGroups, reportText } from "../device-lab-view";
+import { clockText, fileReport, REPORT_FORM_ADDRESS, type FileNotice, reportGroups, reportText } from "../device-lab-view";
 import { currentLocale, t } from "../i18n";
 import { s } from "../theme";
 import { usePalette } from "../use-palette";
@@ -27,7 +27,7 @@ type State =
   | { kind: "failed"; reason: Failure }
   | { kind: "done"; report: DeviceReport };
 
-type Shared = "copied" | "copyFailed" | "longCopied" | "openFailed";
+type Shared = "copied" | FileNotice;
 
 export default function DeviceLab() {
   usePalette();
@@ -190,22 +190,8 @@ function Report({ report, onAgain }: { report: DeviceReport; onAgain(): void }) 
     }
   };
   const file = async () => {
-    const link = issueLink(report);
-    if (!link.prefilled) {
-      try {
-        await copyReport(text);
-        setShared("longCopied");
-      } catch {
-        return setShared("copyFailed");
-      }
-    } else {
-      setShared(undefined);
-    }
-    try {
-      await openReportForm(link.url);
-    } catch {
-      setShared("openFailed");
-    }
+    setShared(undefined);
+    setShared(await fileReport(report, { copy: copyReport, open: openReportForm }));
   };
   const share = async () => {
     try {
@@ -251,7 +237,7 @@ function Report({ report, onAgain }: { report: DeviceReport; onAgain(): void }) 
           <Btn label={t("HM-SET-10.copy")} kind="secondary" icon="copy" style={{ flexGrow: 1 }} onPress={() => void copy()} />
           <Btn label={t("HM-SET-10.share")} kind="secondary" icon="send" style={{ flexGrow: 1 }} onPress={() => void share()} />
         </View>
-        {notice ? <Notice text={notice} tone={shared === "copied" ? "ok" : shared === "longCopied" ? "info" : "bad"} /> : null}
+        {notice ? <Notice text={notice} tone={shared === "copied" ? "ok" : shared === "fileCopied" || shared === "longCopied" ? "info" : "bad"} /> : null}
       </View>
 
       <View style={{ marginTop: s.xl }}>

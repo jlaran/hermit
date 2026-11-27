@@ -36,6 +36,32 @@ export function issueLink(r: DeviceReport): { url: string; prefilled: boolean } 
   return { url: base, prefilled: false };
 }
 
+/** What the screen says after File it on GitHub. */
+export type FileNotice = "fileCopied" | "longCopied" | "copyFailed" | "openFailed";
+
+/**
+ * File it on GitHub: the exact report goes to the clipboard first, every time, then the system opens the link with
+ * whatever handles github.com (the GitHub app when installed, else the browser). The app may drop the link's query, so
+ * the copy is what lets the report reach the form either way. When the copy fails, a filled-in form still opens; an
+ * empty one doesn't, since the person would have nothing to paste.
+ */
+export async function fileReport(r: DeviceReport, io: { copy(text: string): Promise<void>; open(url: string): Promise<void> }): Promise<FileNotice | undefined> {
+  const link = issueLink(r);
+  let copied = true;
+  try {
+    await io.copy(reportText(r));
+  } catch {
+    copied = false;
+    if (!link.prefilled) return "copyFailed";
+  }
+  try {
+    await io.open(link.url);
+  } catch {
+    return "openFailed";
+  }
+  return !copied ? undefined : link.prefilled ? "fileCopied" : "longCopied";
+}
+
 /** Minutes and seconds, for the time so far ("1:05"). */
 export function clockText(ms: number): string {
   const total = Math.max(0, Math.floor(ms / 1000));

@@ -128,7 +128,7 @@ export async function shareReport(text: string, subject: string): Promise<void> 
   await Share.share({ message: text, title: subject });
 }
 
-/** Opens the GitHub form in the browser. Nothing is filed until the person submits it there. */
+/** Opens the GitHub form with the system's default handler: the GitHub app when installed, else the browser. Nothing is filed until the person submits it there. */
 export function openReportForm(url: string): Promise<void> {
   return Linking.openURL(url);
 }

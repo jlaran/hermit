@@ -2228,13 +2228,14 @@
   "HM-SET-10.hideExact": "Hide the exact text",
   "HM-SET-10.exactNote": "This is exactly the text that Copy, Share and File it on GitHub use.",
   "HM-SET-10.shareTitle": "Share it, if you like",
-  "HM-SET-10.shareBody": "Reports from many phones help tune Hermit's speed and accuracy for each one. File it on GitHub opens the Hermit project's report form in your browser with the report filled in. Nothing is filed until you press Submit there, and you need a GitHub account.",
+  "HM-SET-10.shareBody": "Reports from many phones help tune Hermit's speed and accuracy for each one. File it on GitHub copies the report, then opens the Hermit project's report form in the GitHub app or your browser, with the report filled in. Nothing is filed until you press Submit there, and you need a GitHub account.",
   "HM-SET-10.file": "File it on GitHub",
   "HM-SET-10.copy": "Copy",
   "HM-SET-10.share": "Share",
   "HM-SET-10.copied": "Copied.",
   "HM-SET-10.copyFailed": "Couldn't copy it. Try again.",
-  "HM-SET-10.longCopied": "The report is too long for a link, so it's copied: paste it into the form's Report field.",
-  "HM-SET-10.openFailed": "Couldn't open the browser. Copy the report and file it at {address}.",
+  "HM-SET-10.fileCopied": "The report is copied too. If the form opens empty, paste it into the Report field. If the GitHub app shows a list of forms, pick Device report.",
+  "HM-SET-10.longCopied": "The report is too long for a link, so it's copied. Paste it into the form's Report field. If the GitHub app shows a list of forms, pick Device report.",
+  "HM-SET-10.openFailed": "Couldn't open GitHub. Copy the report and file it at {address}.",
   "HM-SET-10.shareSubject": "Hermit device report"
 }
