@@ -24,7 +24,7 @@ import {
   type UpdateStep,
 } from "@hermit/model";
 import { HermitNotifications } from "../../modules/hermit-notifications";
-import { modelFile, phoneDownload, phoneFacts } from "./device";
+import { modelFile, phoneDownload, phoneFacts, resumableBytesOf } from "./device";
 import { countedFetch, countOutbound } from "./net";
 import { byteCount } from "../platform-facts";
 
@@ -118,7 +118,7 @@ async function apply(e: UpdateEffect): Promise<UpdateEvent> {
         await phoneDownload(e.url, e.fileName, e.from, () => {}, expected);
         return { type: "downloaded" };
       } catch {
-        return { type: "download_failed", received: modelFile(`${e.fileName}.part`).exists ? byteCount(modelFile(`${e.fileName}.part`).size) : 0 };
+        return { type: "download_failed", received: resumableBytesOf(e.fileName, e.url) };
       }
     }
     case "verify": {
@@ -153,7 +153,7 @@ async function apply(e: UpdateEffect): Promise<UpdateEvent> {
       return { type: "self_test", passed: smokePassed(reply) };
     }
     case "delete_file": {
-      for (const name of [e.fileName, `${e.fileName}.part`, `${e.fileName}.sha256`]) {
+      for (const name of [e.fileName, `${e.fileName}.part`, `${e.fileName}.part.resume`, `${e.fileName}.sha256`]) {
         const f = modelFile(name);
         if (f.exists) f.delete();
       }
@@ -214,8 +214,13 @@ export function recoverModelUpdate(): Promise<void> {
   state = journal;
   return exclusive(async () => {
     const pointer = readJson<InstalledModel>(POINTER);
-    const staged = journal.phase === "downloading" || journal.phase === "waiting" ? modelFile(`${stagedName(journal)}.part`) : undefined;
-    await run(recoverUpdate(journal, { pointerSha256: pointer?.sha256, stagedBytes: staged?.exists ? byteCount(staged.size) : undefined }));
+    let stagedBytes: number | undefined;
+    if (journal.phase === "downloading" || journal.phase === "waiting") {
+      const staged = modelFile(`${stagedName(journal)}.part`);
+      // iOS has no .part mid-download; its saved resume data says how far it got (#127).
+      stagedBytes = staged.exists ? byteCount(staged.size) : resumableBytesOf(stagedName(journal), journal.manifest.file.url) || undefined;
+    }
+    await run(recoverUpdate(journal, { pointerSha256: pointer?.sha256, stagedBytes }));
   });
 }
 

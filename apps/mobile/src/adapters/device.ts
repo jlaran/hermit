@@ -1,8 +1,9 @@
 import { Directory, DownloadTask, File, Paths } from "expo-file-system";
 import * as Network from "expo-network";
-import { Linking, Platform } from "react-native";
+import { AppState, Linking, Platform } from "react-native";
 import { allowedCpuSet, cpuListText, initialPlan, threadPlan, threadsReload, withThreads, type HardwareFacts, type RuntimePlan, type ThreadPlan } from "@hermit/model";
 import { HermitNotifications } from "../../modules/hermit-notifications";
+import { pausesFor, readResumeRecord, resumableBytes, resumePlan, resumeRecordText, type ResumeRecord } from "../download-resume";
 import { nightDeviceState, type NightDeviceState } from "../night-device";
 import { byteCount, hardwareFactsFor, hardwarePlatform, thermalFromNative, type NativeThermal } from "../platform-facts";
 import { observedTokensPerSecond } from "./qvac-engine";
@@ -13,6 +14,27 @@ export function onReconnect(listener: () => void): () => void {
     if (s.isConnected) listener();
   });
   return () => sub.remove();
+}
+
+/** The model download running now, so it can be paused to keep its iOS resume data. */
+let active: DownloadTask | undefined;
+
+/**
+ * iOS (#127): pauses the running model download when the app goes to the background or the connection drops, so
+ * NSURLSession's resume data is saved next to `.part` and the next attempt picks up from it. expo-file-system hands
+ * the resume data back only from a pause, never from a failure. Does nothing on Android, which keeps `.part` on disk.
+ * Returns unsubscribe.
+ */
+export function pauseDownloadWhenLeaving(): () => void {
+  const pause = (signal: { appState?: string; connected?: boolean }) => {
+    if (pausesFor(Platform.OS, signal) && active?.state === "active") void active.pauseAsync().catch(() => {});
+  };
+  const app = AppState.addEventListener("change", (appState) => pause({ appState }));
+  const net = Network.addNetworkStateListener((s) => pause({ connected: s.isConnected }));
+  return () => {
+    app.remove();
+    net.remove();
+  };
 }
 
 /** Android's storage page (EC-ONB-03), falling back to the app's own settings page. */
@@ -52,7 +74,7 @@ export function verifiedSha256(name: string): string | undefined {
  * A model in place without its verification record goes back to `.part` first, so it is hashed again
  * before it can ever load; it is never trusted as is.
  */
-export function partialBytes(name: string): number {
+export function partialBytes(name: string, url: string): number {
   const final = modelFile(name);
   const part = modelFile(`${name}.part`);
   const sidecar = modelFile(`${name}.sha256`);
@@ -60,7 +82,26 @@ export function partialBytes(name: string): number {
     if (part.exists) part.delete();
     final.move(part);
   }
-  return part.exists ? byteCount(part.size) : 0;
+  return resumableBytesOf(name, url);
+}
+
+/** iOS: NSURLSession's resume data for `<name>.part`, saved when the download paused (#127). */
+const resumeFile = (name: string) => modelFile(`${name}.part.resume`);
+
+/** The saved resume data for this URL, when it is there and well formed; never throws. */
+function savedResume(name: string, url: string, size?: number): ResumeRecord | undefined {
+  try {
+    const f = resumeFile(name);
+    return f.exists ? readResumeRecord(f.textSync(), url, size) : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Bytes a download of `<name>` can resume from: `.part` on disk, or on iOS the saved resume data. Moves nothing. */
+export function resumableBytesOf(name: string, url: string): number {
+  const part = modelFile(`${name}.part`);
+  return resumableBytes(Platform.OS, part.exists ? byteCount(part.size) : 0, savedResume(name, url));
 }
 
 /**
@@ -72,32 +113,68 @@ export function partialBytes(name: string): number {
  * starts clean (a retry after a failed check, US-ONB-07); more than 0 resumes from that byte with an
  * HTTP Range request (lost connection, full disk, app killed). A failed attempt keeps `.part` so the
  * next one can resume; only discard() (after a hash mismatch) deletes it.
+ *
+ * iOS (#127) writes `.part` only once the file is complete, and resumes from the resume data NSURLSession
+ * produced when the task paused, saved in `<name>.part.resume`; see download-resume.ts for which path runs.
  */
 export async function phoneDownload(url: string, name: string, from: number, onProgress: (received: number) => void, expectedSize?: number) {
   const final = modelFile(name);
   const part = modelFile(`${name}.part`);
   const sidecar = modelFile(`${name}.sha256`);
+  const saved = resumeFile(name);
   // Whatever sits at the final name is not trusted by a new attempt: back to .part, record removed.
   if (final.exists) {
     if (part.exists) part.delete();
     final.move(part);
   }
   if (sidecar.exists) sidecar.delete();
-  const offset = from > 0 && part.exists ? Math.min(from, byteCount(part.size)) : 0;
-  if (offset === 0 && part.exists) part.delete();
-  const onBytes = { onProgress: ({ bytesWritten }: { bytesWritten: number | bigint }) => onProgress(byteCount(bytesWritten)) };
+  const record = savedResume(name, url, expectedSize);
+  // Resume data is used once: a resumed task that pauses again saves a fresh record, so a stale one never lingers.
+  if (saved.exists) saved.delete();
+  const plan = resumePlan(Platform.OS, { from, partBytes: part.exists ? byteCount(part.size) : 0, expectedSize, record });
+  if (plan.kind === "clean" && part.exists) part.delete();
+  let received = 0;
+  const onBytes = {
+    onProgress: ({ bytesWritten }: { bytesWritten: number | bigint }) => {
+      received = byteCount(bytesWritten);
+      onProgress(received);
+    },
+  };
+  const restored = (resumeData: string) => DownloadTask.fromSavable({ url, fileUri: part.uri, isDirectory: false, resumeData }, onBytes);
+  let task: DownloadTask | undefined;
   let file: File | null;
-  if (offset > 0 && offset === expectedSize) {
-    // Complete already: go straight to the check, which still runs.
-    onProgress(offset);
-    file = part;
-  } else if (offset > 0) {
-    // Android resume data is the byte offset; the native task truncates to it and appends (Range).
-    file = await DownloadTask.fromSavable({ url, fileUri: part.uri, isDirectory: false, resumeData: String(offset) }, onBytes).resumeAsync();
-  } else {
-    file = await File.createDownloadTask(url, part, onBytes).downloadAsync();
+  try {
+    if (plan.kind === "complete") {
+      // Complete already: go straight to the check, which still runs.
+      onProgress(byteCount(part.size));
+      file = part;
+    } else if (plan.kind === "range") {
+      // Android resume data is the byte offset; the native task truncates to it and appends (Range).
+      file = await (task = active = restored(String(plan.offset))).resumeAsync();
+    } else if (plan.kind === "resume_data") {
+      // iOS: NSURLSession's own resume data from the pause. If it is rejected (stale, or the system cleared the
+      // bytes it kept), one clean restart from zero instead, so a bad record never blocks the download.
+      received = plan.offset;
+      onProgress(plan.offset);
+      try {
+        file = await (task = active = restored(plan.resumeData)).resumeAsync();
+      } catch {
+        received = 0;
+        onProgress(0);
+        file = await (task = active = File.createDownloadTask(url, part, onBytes)).downloadAsync();
+      }
+    } else {
+      file = await (task = active = File.createDownloadTask(url, part, onBytes)).downloadAsync();
+    }
+  } finally {
+    if (active === task) active = undefined;
   }
-  if (!file) throw new Error("download paused"); // .part stays for the next resume
+  // iOS keeps nothing in .part until the end: a pause saves NSURLSession's resume data next to it instead.
+  if (!file && task?.state === "paused" && Platform.OS === "ios") {
+    const text = resumeRecordText(url, task.savable().resumeData, received);
+    if (text) saved.write(text);
+  }
+  if (!file) throw new Error("download paused"); // .part (Android) or its resume data (iOS) stays for the next resume
   return {
     /** Native streamed SHA-256 (seconds, off the JS thread); the JS chunks() path stays for tests and fallback. */
     sha256: () => HermitNotifications.sha256File(file.uri),

@@ -286,10 +286,10 @@ export function downloadModel(url: string, from: number, onProgress: (received: 
 
 /** Bytes of an unverified partial download on disk, for resuming after a kill or a drop (EC-ONB-04). */
 export function partialModel(file: { url: string }): number {
-  return partialBytes(file.url.split("/").pop() ?? "model.gguf");
+  return partialBytes(file.url.split("/").pop() ?? "model.gguf", file.url);
 }
 
-export { onReconnect, openStorageSettings } from "./device";
+export { onReconnect, openStorageSettings, pauseDownloadWhenLeaving } from "./device";
 
 /** True only when the model in place was promoted with exactly the SHA-256 this build pins, or an update made one active. */
 export function modelReady(file: { url: string; sha256: string }): boolean {

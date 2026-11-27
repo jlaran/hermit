@@ -6,7 +6,7 @@ import { router, useLocalSearchParams } from "expo-router";
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { AppState, View } from "react-native";
 import { PROFILES, assertPinnedUrl, classifyInterruption, downloadView, floorCheck, percent, reduceDownload, resumesOnReturn, type DegradedReason, type DownloadAction, type DownloadEvent, type DownloadState } from "@hermit/model";
-import { deviceFacts, downloadModel, floorFacts, modelReady, NotWiredError, onReconnect, openStorageSettings, partialModel } from "../adapters";
+import { deviceFacts, downloadModel, floorFacts, modelReady, NotWiredError, onReconnect, openStorageSettings, partialModel, pauseDownloadWhenLeaving } from "../adapters";
 import { currentLocale, t } from "../i18n";
 import { Btn, Group, Row, T } from "../components/kit";
 import { Onb } from "../components/Onboarding";
@@ -101,6 +101,10 @@ export default function Download() {
       off();
     };
   }, [run, allowMobile]);
+
+  // iOS (#127): leaving the app or losing the connection pauses the download so it keeps its place; the pause lands
+  // as an interrupted download above, and coming back or reconnecting resumes it. Nothing on Android.
+  useEffect(() => pauseDownloadWhenLeaving(), []);
 
   const onAction = (id: DownloadAction) => {
     switch (id) {
